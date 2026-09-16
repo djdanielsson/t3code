@@ -258,7 +258,10 @@ export const make = Effect.gen(function* () {
         }
         if (event.type === "output") {
           lineBuffer += event.data;
-          const lines = lineBuffer.split(/\r?\n/);
+          // A bare carriage return is how installers redraw a progress line in
+          // place. Treating it as a line break keeps each redraw a short line
+          // of its own instead of gluing every update into one long one.
+          const lines = lineBuffer.split(/\r\n|\r|\n/);
           lineBuffer = lines.pop() ?? "";
           // A script that never prints a newline must not grow this forever.
           // The sentinel is always on its own line, so keeping the tail is safe.

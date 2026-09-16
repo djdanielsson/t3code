@@ -10,6 +10,7 @@ import {
   type ServerProvider,
   ThreadId,
   TurnId,
+  type WorktreeSetupSnapshot,
 } from "@t3tools/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Atom, AsyncResult } from "effect/unstable/reactivity";
@@ -2533,7 +2534,12 @@ describe("worktree setup visibility", () => {
     expect(findRecordedWorktreeSetup(activities, ThreadId.make("other"))).toBeNull();
   });
 
-  it("shows a running setup and hides a clean one once the turn started", () => {
+  it("shows a running setup and drops a clean one once the turn started", () => {
+    const visible = (
+      snapshot: WorktreeSetupSnapshot | null,
+      turnStarted: boolean,
+      isWorking = true,
+    ) => resolveVisibleWorktreeSetup({ live: null, recorded: snapshot, turnStarted, isWorking });
     expect(
       resolveVisibleWorktreeSetup({
         live: base,
@@ -2542,22 +2548,10 @@ describe("worktree setup visibility", () => {
         isWorking: true,
       }),
     ).toEqual(base);
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: null,
-        recorded: settledDone,
-        turnStarted: false,
-        isWorking: true,
-      }),
-    ).toEqual(settledDone);
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: null,
-        recorded: settledDone,
-        turnStarted: true,
-        isWorking: true,
-      }),
-    ).toBeNull();
+    expect(visible(settledDone, false)).toEqual(settledDone);
+    expect(visible(settledDone, true)).toBeNull();
+    expect(visible(settledDone, true, false)).toBeNull();
+    expect(visible(null, true)).toBeNull();
   });
 
   it("keeps a failed script visible for the running turn and a failed setup always", () => {
@@ -2565,57 +2559,26 @@ describe("worktree setup visibility", () => {
       ...settledDone,
       stages: [stage("checkout", "done"), stage("setup-script", "failed"), stage("agent", "done")],
     };
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: null,
-        recorded: scriptFailed,
-        turnStarted: true,
-        isWorking: true,
-      }),
-    ).toEqual(scriptFailed);
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: null,
-        recorded: scriptFailed,
-        turnStarted: true,
-        isWorking: false,
-      }),
-    ).toBeNull();
+    const visible = (snapshot: WorktreeSetupSnapshot, isWorking: boolean) =>
+      resolveVisibleWorktreeSetup({ live: null, recorded: snapshot, turnStarted: true, isWorking });
+    expect(visible(scriptFailed, true)).toEqual(scriptFailed);
+    expect(visible(scriptFailed, false)).toBeNull();
     const failed = { ...settledDone, phase: "failed" as const, error: "git exploded" };
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: null,
-        recorded: failed,
-        turnStarted: true,
-        isWorking: false,
-      }),
-    ).toEqual(failed);
+    expect(visible(failed, false)).toEqual(failed);
+    const cancelled = { ...settledDone, phase: "cancelled" as const };
+    expect(visible(cancelled, false)).toEqual(cancelled);
   });
 
   it("prefers whichever snapshot is newer by sequence", () => {
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: { ...base, sequence: 3 },
-        recorded: { ...settledDone, sequence: 7 },
-        turnStarted: false,
-        isWorking: false,
-      }),
-    ).toEqual({ ...settledDone, sequence: 7 });
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: { ...settledDone, sequence: 9 },
-        recorded: { ...base, sequence: 1 },
-        turnStarted: false,
-        isWorking: false,
-      }),
-    ).toEqual({ ...settledDone, sequence: 9 });
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: base,
-        recorded: null,
-        turnStarted: false,
-        isWorking: false,
-      }),
-    ).toEqual(base);
+    const pick = (live: WorktreeSetupSnapshot | null, recorded: WorktreeSetupSnapshot | null) =>
+      resolveVisibleWorktreeSetup({ live, recorded, turnStarted: false, isWorking: false });
+    expect(pick({ ...base, sequence: 3 }, { ...settledDone, sequence: 7 })).toEqual({
+      ...settledDone,
+      sequence: 7,
+    });
+    expect(pick({ ...settledDone, sequence: 9 }, { ...base, sequence: 1 })).toEqual({
+      ...settledDone,
+      sequence: 9,
+    });
   });
 });

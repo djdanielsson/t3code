@@ -278,9 +278,11 @@ export function findRecordedWorktreeSetup(
 /**
  * Which setup snapshot the timeline shows, if any. The live stream wins while
  * it has a newer sequence; the recorded activity covers everything else. A
- * running setup always shows. Once settled, the card stays only while it
- * still says something the turn does not: the turn has not started yet, or a
- * stage failed and the turn is still running so the exit code stays reachable.
+ * running, failed, or cancelled setup always shows. A clean finish leaves no
+ * trace once the turn is live: the setup is a means to the reply, not part of
+ * the conversation. Before the turn is live it stays so nothing collapses in
+ * the handoff gap. A failed script stays while the turn still runs so its
+ * exit code and terminal remain reachable.
  */
 export function resolveVisibleWorktreeSetup(input: {
   live: WorktreeSetupSnapshot | null;
@@ -293,7 +295,6 @@ export function resolveVisibleWorktreeSetup(input: {
       ? input.live
       : input.recorded;
   if (!snapshot) return null;
-  if (snapshot.phase === "running") return snapshot;
   if (snapshot.phase !== "done") return snapshot;
   if (!input.turnStarted) return snapshot;
   const stageFailed = snapshot.stages.some((stage) => stage.status === "failed");
