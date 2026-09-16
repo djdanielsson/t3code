@@ -2286,8 +2286,8 @@ function BackgroundWorktreeSetupChip({ snapshot }: { snapshot: WorktreeSetupSnap
     <Popover>
       <PopoverTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="chip"
             className="ml-auto inline-flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-full border border-border/70 px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label={`${scriptName} is still running. Show setup progress.`}
           />

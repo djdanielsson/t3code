@@ -281,14 +281,14 @@ export function findRecordedWorktreeSetup(
  * running, failed, or cancelled setup always shows. A clean finish leaves no
  * trace once the turn is live: the setup is a means to the reply, not part of
  * the conversation. Before the turn is live it stays so nothing collapses in
- * the handoff gap. A failed script stays while the turn still runs so its
- * exit code and terminal remain reachable.
+ * the handoff gap. A failed script stays for good, so its exit code and
+ * terminal remain reachable; visibility never depends on whether some later
+ * turn happens to be running, which would make the row come and go.
  */
 export function resolveVisibleWorktreeSetup(input: {
   live: WorktreeSetupSnapshot | null;
   recorded: WorktreeSetupSnapshot | null;
   turnStarted: boolean;
-  isWorking: boolean;
 }): WorktreeSetupSnapshot | null {
   const snapshot =
     input.live && (!input.recorded || input.live.sequence >= input.recorded.sequence)
@@ -297,8 +297,7 @@ export function resolveVisibleWorktreeSetup(input: {
   if (!snapshot) return null;
   if (snapshot.phase !== "done") return snapshot;
   if (!input.turnStarted) return snapshot;
-  const stageFailed = snapshot.stages.some((stage) => stage.status === "failed");
-  return stageFailed && input.isWorking ? snapshot : null;
+  return snapshot.stages.some((stage) => stage.status === "failed") ? snapshot : null;
 }
 
 export function resolveDraftHeroState(input: {

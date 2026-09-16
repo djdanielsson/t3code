@@ -1,7 +1,7 @@
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import ChatView from "./ChatView";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
@@ -33,13 +33,16 @@ import { resolveThreadSyncPhase } from "../threadSync";
 
 /**
  * The single chat surface behind both `/draft/$draftId` and
- * `/$environmentId/$threadId`. A draft reserves its thread id up front, so
- * one ChatView element keyed by that id carries the draft through its
- * promotion to a server thread: the route swap only changes props, nothing
- * unmounts, and the timeline never paints an empty frame in between.
+ * `/$environmentId/$threadId`. Each draft gets its own ChatView instance (so
+ * a background send's state stays with the draft it came from), and that
+ * instance carries the draft through its promotion to a server thread: the
+ * thread route keeps keying by the draft id while the draft record exists,
+ * so the route swap only changes props and the timeline never paints an
+ * empty frame. Plain server threads are unkeyed, so navigating between them
+ * reuses one instance as ChatView expects.
  *
  * Rendered by the `_chat` layout rather than by the two leaf routes, since
- * a keyed element only survives when the same parent renders it.
+ * an element only survives a route swap when the same parent renders it.
  */
 export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const navigate = useNavigate();
@@ -83,6 +86,25 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const draftThread = useComposerDraftStore((store) =>
     serverThreadRef ? store.getDraftThreadByRef(serverThreadRef) : null,
   );
+  const promotedDraftId = useComposerDraftStore((store) =>
+    target.kind === "server" ? store.getDraftIdByRef(target.threadRef) : null,
+  );
+  // The draft record is removed once the promoted thread has started, which
+  // is after the route swap. Latch the key so the element that carried the
+  // draft keeps its identity for as long as this thread stays on screen.
+  const [chatViewKey, setChatViewKey] = useState<{ threadKey: string; key: string } | null>(null);
+  const serverThreadKey = target.kind === "server" ? scopedThreadKey(target.threadRef) : null;
+  const nextChatViewKey =
+    serverThreadKey === null
+      ? null
+      : chatViewKey?.threadKey === serverThreadKey
+        ? chatViewKey
+        : promotedDraftId
+          ? { threadKey: serverThreadKey, key: promotedDraftId }
+          : null;
+  if (nextChatViewKey !== chatViewKey) {
+    setChatViewKey(nextChatViewKey);
+  }
   const environmentHasDraftThreads = useComposerDraftStore((store) =>
     serverThreadRef ? store.hasDraftThreadsInEnvironment(serverThreadRef.environmentId) : false,
   );
@@ -163,10 +185,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     if (draftSession) {
       view = (
         <ChatView
-          key={scopedThreadKey({
-            environmentId: draftSession.environmentId,
-            threadId: draftSession.threadId,
-          })}
+          key={target.draftId}
           draftId={target.draftId}
           environmentId={draftSession.environmentId}
           threadId={draftSession.threadId}
@@ -178,7 +197,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   } else if (renderState === "ready" || (renderState === "loading" && serverThreadShell !== null)) {
     view = (
       <ChatView
-        key={scopedThreadKey(target.threadRef)}
+        {...(nextChatViewKey ? { key: nextChatViewKey.key } : {})}
         environmentId={target.threadRef.environmentId}
         threadId={target.threadRef.threadId}
         routeKind="server"

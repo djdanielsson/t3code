@@ -287,8 +287,8 @@ function SetupDetails({ snapshot }: { snapshot: WorktreeSetupSnapshot }) {
 
 /**
  * One-line summary of a settled setup under a live turn. A clean finish is
- * removed from the timeline altogether, so this only ever renders the
- * script-failed outcome while the turn still runs and the terminal matters.
+ * removed from the timeline altogether, so this only renders the outcomes
+ * worth keeping: a failed script, a failed setup, or a cancelled one.
  */
 function CollapsedSummaryRow({
   snapshot,
@@ -297,11 +297,13 @@ function CollapsedSummaryRow({
   snapshot: WorktreeSetupSnapshot;
   totalElapsed: number | null;
 }) {
-  const scriptFailed = snapshot.stages.some(
-    (stage) => stage.id === "setup-script" && stage.status === "failed",
-  );
-  const status: WorktreeSetupStage["status"] = scriptFailed ? "failed" : "done";
-  const label = scriptFailed ? "Worktree ready, setup script failed" : "Worktree ready";
+  const status: WorktreeSetupStage["status"] =
+    snapshot.phase === "failed" || snapshot.phase === "cancelled"
+      ? "failed"
+      : snapshot.stages.some((stage) => stage.id === "setup-script" && stage.status === "failed")
+        ? "failed"
+        : "done";
+  const label = headerLabel(snapshot);
   return (
     <div
       className={cn(

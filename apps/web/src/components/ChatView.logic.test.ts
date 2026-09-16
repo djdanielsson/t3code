@@ -2535,43 +2535,33 @@ describe("worktree setup visibility", () => {
   });
 
   it("shows a running setup and drops a clean one once the turn started", () => {
-    const visible = (
-      snapshot: WorktreeSetupSnapshot | null,
-      turnStarted: boolean,
-      isWorking = true,
-    ) => resolveVisibleWorktreeSetup({ live: null, recorded: snapshot, turnStarted, isWorking });
-    expect(
-      resolveVisibleWorktreeSetup({
-        live: base,
-        recorded: null,
-        turnStarted: false,
-        isWorking: true,
-      }),
-    ).toEqual(base);
+    const visible = (snapshot: WorktreeSetupSnapshot | null, turnStarted: boolean) =>
+      resolveVisibleWorktreeSetup({ live: null, recorded: snapshot, turnStarted });
+    expect(resolveVisibleWorktreeSetup({ live: base, recorded: null, turnStarted: false })).toEqual(
+      base,
+    );
     expect(visible(settledDone, false)).toEqual(settledDone);
     expect(visible(settledDone, true)).toBeNull();
-    expect(visible(settledDone, true, false)).toBeNull();
     expect(visible(null, true)).toBeNull();
   });
 
-  it("keeps a failed script visible for the running turn and a failed setup always", () => {
+  it("keeps a failed script, a failed setup, and a cancelled setup visible", () => {
     const scriptFailed = {
       ...settledDone,
       stages: [stage("checkout", "done"), stage("setup-script", "failed"), stage("agent", "done")],
     };
-    const visible = (snapshot: WorktreeSetupSnapshot, isWorking: boolean) =>
-      resolveVisibleWorktreeSetup({ live: null, recorded: snapshot, turnStarted: true, isWorking });
-    expect(visible(scriptFailed, true)).toEqual(scriptFailed);
-    expect(visible(scriptFailed, false)).toBeNull();
+    const visible = (snapshot: WorktreeSetupSnapshot) =>
+      resolveVisibleWorktreeSetup({ live: null, recorded: snapshot, turnStarted: true });
+    expect(visible(scriptFailed)).toEqual(scriptFailed);
     const failed = { ...settledDone, phase: "failed" as const, error: "git exploded" };
-    expect(visible(failed, false)).toEqual(failed);
+    expect(visible(failed)).toEqual(failed);
     const cancelled = { ...settledDone, phase: "cancelled" as const };
-    expect(visible(cancelled, false)).toEqual(cancelled);
+    expect(visible(cancelled)).toEqual(cancelled);
   });
 
   it("prefers whichever snapshot is newer by sequence", () => {
     const pick = (live: WorktreeSetupSnapshot | null, recorded: WorktreeSetupSnapshot | null) =>
-      resolveVisibleWorktreeSetup({ live, recorded, turnStarted: false, isWorking: false });
+      resolveVisibleWorktreeSetup({ live, recorded, turnStarted: false });
     expect(pick({ ...base, sequence: 3 }, { ...settledDone, sequence: 7 })).toEqual({
       ...settledDone,
       sequence: 7,

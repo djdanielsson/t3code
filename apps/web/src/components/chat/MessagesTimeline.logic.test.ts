@@ -1092,19 +1092,20 @@ describe("resolveAssistantMessageCopyState", () => {
 });
 
 describe("deriveMessagesTimelineRows", () => {
+  const queuedMessage = (id: string, prompt: string) => ({
+    id,
+    prompt,
+    images: [],
+    files: [],
+    terminalContexts: [],
+    previewAnnotations: [],
+    reviewComments: [],
+    submissionIntent: "foreground" as const,
+    queuedAfterToolActivityId: null,
+    createdAt: "2026-01-01T00:00:01Z",
+  });
+
   it("appends queued messages after the live rows, marking the oldest as next", () => {
-    const queuedMessage = (id: string, prompt: string) => ({
-      id,
-      prompt,
-      images: [],
-      files: [],
-      terminalContexts: [],
-      previewAnnotations: [],
-      reviewComments: [],
-      submissionIntent: "foreground" as const,
-      queuedAfterToolActivityId: null,
-      createdAt: "2026-01-01T00:00:01Z",
-    });
     const rows = deriveMessagesTimelineRows({
       timelineEntries: [],
       isWorking: true,
@@ -1203,7 +1204,9 @@ describe("deriveMessagesTimelineRows", () => {
       "worktree-setup",
     ]);
 
-    // A failed setup never handed off, so the card stays under the send.
+    // A failed setup never handed off, so the card stays under the send. The
+    // rest of the timeline is untouched: a running send still gets its
+    // working and thinking rows, and queued follow-ups still trail.
     const withMessages = deriveMessagesTimelineRows({
       timelineEntries: [userEntry, assistantEntry],
       isWorking: true,
@@ -1211,12 +1214,30 @@ describe("deriveMessagesTimelineRows", () => {
       turnDiffSummaries: [],
       supportsConversationRollback: false,
       worktreeSetup: { ...snapshot, phase: "failed" },
+      queuedMessages: [queuedMessage("q1", "later")],
     });
     expect(withMessages.map((row) => row.kind)).toEqual([
       "message",
       "worktree-setup",
       "working",
       "message",
+      "thinking",
+      "queued-message",
+    ]);
+    const runningWithQueue = deriveMessagesTimelineRows({
+      timelineEntries: [userEntry],
+      isWorking: true,
+      activeTurnStartedAt: "2026-01-01T00:00:00Z",
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
+      worktreeSetup: snapshot,
+      queuedMessages: [queuedMessage("q1", "later")],
+    });
+    expect(runningWithQueue.map((row) => row.kind)).toEqual([
+      "message",
+      "working",
+      "worktree-setup",
+      "queued-message",
     ]);
 
     // Once the agent stage is done and the turn is live, a still-running
