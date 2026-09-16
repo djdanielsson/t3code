@@ -171,7 +171,10 @@ export const DEFAULT_MODEL_BY_PROVIDER: Partial<Record<ProviderDriverKind, strin
   [CURSOR_DRIVER_KIND]: "auto",
   // Product slug, not an ACP model id. The Grok adapter treats it as "the session's current model".
   [GROK_DRIVER_KIND]: "grok-build",
-  [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
+  // Fleet workspaces configure only the `fleet` opencode provider, so the
+  // default must be a fleet alias — and one allowed under every LLM policy,
+  // including localOnly. (fleet)
+  [OPENCODE_DRIVER_KIND]: "fleet/local-coder",
   [ProviderDriverKind.make("antigravity")]: ANTIGRAVITY_DEFAULT_MODEL,
 };
 
@@ -183,7 +186,7 @@ export const DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER: Partial<
   [ProviderDriverKind.make("antigravity")]: ANTIGRAVITY_DEFAULT_MODEL,
   [CLAUDE_DRIVER_KIND]: "claude-haiku-4-5",
   [CURSOR_DRIVER_KIND]: "composer-2",
-  [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
+  [OPENCODE_DRIVER_KIND]: "fleet/local-coder",
 };
 
 export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
